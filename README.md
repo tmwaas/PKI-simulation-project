@@ -16,10 +16,10 @@ This project simulates a Public Key Infrastructure (PKI) environment that includ
 
 **Lab Topology**
 Network: `10.0.0.0/24` (private)
-- VM1 (10.0.0.10) — RHEL 8/9 — Root CA & Ansible Control Node
-- VM2 (10.0.0.11) — RHEL 8/9 — Linux PKI Client
+- VM1 (10.0.0.10) — RHEL 10 — Root CA & Ansible Control Node
+- VM2 (10.0.0.11) — RHEL 10 — Linux PKI Client
 - VM3 (10.0.0.12) — Windows Server 2022 — Windows PKI Client
-- VM4 (10.0.0.13) — RHEL 8/9 — Nagios Monitoring Server
+- VM4 (10.0.0.13) — Ubuntu 24.04 LTS — Nagios Monitoring Server
 - GitLab — CI/CD server
 
 ![alt text](Proxmox-4VMs.jpg)
