@@ -1,0 +1,112 @@
+---
+- name: Deploy certificates to clients (vault-enabled)
+  hosts: all
+  gather_facts: yes
+  vars:
+    ca_local_path: "playbooks/files/ca.cert.pem"
+    ca_key_local_path: "playbooks/files/ca.key.pem"  # DO NOT commit private keys; placeholder only
+  tasks:
+    - name: Determine source of CA (Vault / env secrets / local)
+      set_fact:
+        ca_source: >-
+          {% if lookup('env','VAULT_ADDR', default='') and lookup('env','VAULT_TOKEN', default='') %}
+          vault
+          {% elif lookup('env','CI_CA_CERT_BASE64', default='') and lookup('env','CI_CA_KEY_BASE64', default='') %}
+          env
+          {% else %}
+          local
+          {% endif %}
+
+    - name: Debug CA source (only for lab) 
+      debug:
+        msg: "Using CA source={{ ca_source }}"
+
+    - name: Fetch CA from Vault (KV v2) if available
+      when: ca_source == 'vault'
+      block:
+        - name: Get CA secret from Vault via HTTP API (KV v2)
+          uri:
+            url: "{{ lookup('env','VAULT_ADDR') | default('') }}/v1/secret/data/pki/ca"
+            method: GET
+            headers:
+              "X-Vault-Token": "{{ lookup('env','VAULT_TOKEN') }}"
+            return_content: yes
+            status_code: 200
+          register: vault_response
+
+        - name: Parse Vault response and set facts
+          set_fact:
+            ca_cert_content: "{{ (vault_response.json.data.data.ca_cert) | default('') }}"
+            ca_key_content: "{{ (vault_response.json.data.data.ca_key) | default('') }}"
+
+    - name: Fetch CA from environment (CI secrets) if available
+      when: ca_source == 'env'
+      block:
+        - name: Read base64 CA cert from env var
+          set_fact:
+            ca_cert_content: "{{ lookup('env','CI_CA_CERT_BASE64') | b64decode }}"
+        - name: Read base64 CA key from env var
+          set_fact:
+            ca_key_content: "{{ lookup('env','CI_CA_KEY_BASE64') | b64decode }}"
+
+    - name: Use local placeholder CA if neither Vault nor env provided
+      when: ca_source == 'local'
+      block:
+        - name: Read local CA cert file
+          slurp:
+            src: "{{ ca_local_path }}"
+          register: local_ca_cert
+        - name: Set local ca content
+          set_fact:
+            ca_cert_content: "{{ local_ca_cert.content | b64decode }}"
+
+    - name: Fail if we don't have a CA certificate content
+      fail:
+        msg: "No CA certificate available. Provide via VAULT or CI env variables."
+      when: ca_cert_content is not defined or ca_cert_content == ''
+
+    - name: Ensure PKI dir exists (Linux)
+      file:
+        path: /etc/pki
+        state: directory
+        mode: '0755'
+      when: ansible_os_family == "RedHat"
+
+    - name: Install CA certificate to Linux clients from fetched content
+      copy:
+        content: "{{ ca_cert_content }}"
+        dest: /etc/pki/ca.crt
+        mode: '0644'
+      when: ansible_os_family == "RedHat"
+
+    - name: Install CA certificate to Windows (from fetched content)
+      win_copy:
+        content: "{{ ca_cert_content }}"
+        dest: C:\PKI\ca.crt
+      when: ansible_os_family == "Windows"
+
+    - name: Generate Linux client private key
+      community.crypto.openssl_privatekey:
+        path: /etc/pki/client.key.pem
+        size: 2048
+      when: ansible_os_family == "RedHat"
+
+    - name: Generate Linux CSR
+      community.crypto.openssl_csr:
+        path: /etc/pki/client.csr.pem
+        privatekey_path: /etc/pki/client.key.pem
+        common_name: "{{ inventory_hostname }}"
+      when: ansible_os_family == "RedHat"
+
+    - name: Register CSR locally on control node (fetch)
+      fetch:
+        src: /etc/pki/client.csr.pem
+        dest: fetched_csrs/{{ inventory_hostname }}.csr.pem
+        flat: yes
+      when: ansible_os_family == "RedHat"
+
+    - name: Generate Windows self-signed cert (if needed)
+      win_shell: |
+        New-Item -Path C:\PKI -ItemType Directory -Force
+        $cert = New-SelfSignedCertificate -Type Custom -KeySpec Signature -Subject "CN={{ inventory_hostname }}" -CertStoreLocation Cert:\LocalMachine\My -KeyLength 2048
+      when: ansible_os_family == "Windows"

@@ -1,0 +1,24 @@
+---
+- name: Verify cert chain & mTLS
+  hosts: ca
+  become: yes
+  gather_facts: no
+  tasks:
+    - name: Verify intermediate signed by root
+      shell: >
+        openssl verify -CAfile /etc/pki/root/certs/ca.cert.pem /etc/pki/intermediate/certs/intermediate.cert.pem
+      register: verify_intermediate
+      changed_when: false
+
+    - name: Show verification result (intermediate)
+      debug:
+        var: verify_intermediate.stdout
+
+    - name: Test Apache serving with fullchain
+      shell: >
+        openssl s_client -connect localhost:443 -showcerts </dev/null 2>/dev/null | head -n 1
+      register: sclient
+      changed_when: false
+
+    - debug:
+        var: sclient.stdout

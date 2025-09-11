@@ -1,0 +1,41 @@
+---
+- name: Distribute Root & Intermediate CA to Windows clients
+  hosts: windows_clients
+  gather_facts: no
+  vars:
+    root_ca_path: /etc/pki/root/certs/ca.cert.pem
+    interm_ca_path: /etc/pki/intermediate/certs/intermediate.cert.pem
+  tasks:
+    - name: Slurp root CA from CA host
+      slurp:
+        src: "{{ root_ca_path }}"
+      delegate_to: "{{ groups['ca'][0] }}"
+      register: root_ca_content
+
+    - name: Slurp intermediate CA from CA host
+      slurp:
+        src: "{{ interm_ca_path }}"
+      delegate_to: "{{ groups['ca'][0] }}"
+      register: interm_ca_content
+
+    - name: Copy Root CA to Windows temp
+      win_copy:
+        content: "{{ root_ca_content.content | b64decode }}"
+        dest: "C:\\Windows\\Temp\\pki-lab-root.cer"
+
+    - name: Copy Intermediate CA to Windows temp
+      win_copy:
+        content: "{{ interm_ca_content.content | b64decode }}"
+        dest: "C:\\Windows\\Temp\\pki-lab-intermediate.cer"
+
+    - name: Import Root CA to Trusted Root
+      win_certificate_store:
+        path: "C:\\Windows\\Temp\\pki-lab-root.cer"
+        store_name: Root
+        state: present
+
+    - name: Import Intermediate CA to Intermediate store
+      win_certificate_store:
+        path: "C:\\Windows\\Temp\\pki-lab-intermediate.cer"
+        store_name: CA
+        state: present

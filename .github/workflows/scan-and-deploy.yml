@@ -1,0 +1,66 @@
+name: Scan & Deploy (CI)
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  scan-for-secrets:
+    name: Scan repository for private keys and sensitive patterns
+    runs-on: ubuntu-latest
+    outputs:
+      safe: ${{ steps.scan.outputs.safe }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Scan for private key files (quick)
+        id: scan
+        run: |
+          set -e
+          # Look for filenames and file contents that resemble private keys
+          FOUND=0
+          # Check filenames that look like private keys or are in 'private' dirs
+          if git ls-files | grep -E '\.(key|pem)$' | grep -E '(^|/)private(/|$)' >/dev/null 2>&1; then
+            echo "Found private key file path in repository."
+            FOUND=1
+          fi
+          # Check contents for PEM private key markers
+          if git grep -n --line-number "-----BEGIN .*PRIVATE KEY-----" -- ':!*docs/*' ':!*README*' >/dev/null 2>&1; then
+            echo "Found PEM private key content in repository."
+            git grep -n --line-number "-----BEGIN .*PRIVATE KEY-----"
+            FOUND=1
+          fi
+          if [ "$FOUND" -ne 0 ]; then
+            echo "safe=false" >> $GITHUB_OUTPUT
+            echo "::error ::Repository contains private key material. Remove before merging."
+            exit 1
+          else
+            echo "safe=true" >> $GITHUB_OUTPUT
+          fi
+
+  ansible-deploy:
+    name: Run Ansible playbook (dry-run)
+    needs: scan-for-secrets
+    if: needs.scan-for-secrets.outputs.safe == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+      - name: Install Ansible and collections
+        run: |
+          python -m pip install --upgrade pip
+          pip install ansible==8.9.0
+          ansible-galaxy collection install community.crypto
+      - name: Ansible lint (optional)
+        run: |
+          pip install ansible-lint
+          ansible-lint playbooks/pki-automation.yml || true
+      - name: Run playbook in check mode (no changes)
+        env:
+          ANSIBLE_HOST_KEY_CHECKING: "False"
+        run: |
+          ansible-playbook -i inventory.yml playbooks/pki-automation.yml --check --diff

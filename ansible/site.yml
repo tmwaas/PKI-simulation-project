@@ -1,0 +1,60 @@
+---
+- name: Bootstrap Root & Intermediate CA
+  hosts: ca
+  gather_facts: yes
+  tags: [ 'ca' ]
+  tasks:
+    - import_playbook: playbooks/setup_ca.yml
+
+- name: Distribute trust store to Linux nodes
+  hosts: linux_clients
+  gather_facts: yes
+  tags: [ 'trust', 'linux' ]
+  tasks:
+    - import_playbook: playbooks/deploy_trust_linux.yml
+
+- name: Distribute trust store to Windows nodes
+  hosts: windows_clients
+  gather_facts: no
+  tags: [ 'trust', 'windows' ]
+  tasks:
+    - import_playbook: playbooks/deploy_trust_windows.yml
+
+- name: Linux client certificate workflow
+  hosts: linux_clients
+  gather_facts: yes
+  tags: [ 'linux' ]
+  tasks:
+    - import_playbook: playbooks/setup_linux_client.yml
+    - import_playbook: playbooks/sign_client.yml
+    - import_playbook: playbooks/deploy_linux_client_cert.yml
+
+- name: Windows client certificate workflow
+  hosts: windows_clients
+  gather_facts: no
+  tags: [ 'windows' ]
+  tasks:
+    - import_playbook: playbooks/setup_windows_client.yml
+    - import_playbook: playbooks/sign_windows_client.yml
+    - import_playbook: playbooks/deploy_windows_client_cert.yml
+
+- name: Configure Apache for mTLS on CA host (demo server)
+  hosts: ca
+  gather_facts: yes
+  tags: [ 'apache' ]
+  tasks:
+    - import_playbook: playbooks/setup_apache_mtls.yml
+
+- name: Verify certificates & chain
+  hosts: ca
+  gather_facts: yes
+  tags: [ 'verify' ]
+  tasks:
+    - import_playbook: playbooks/verify_certs.yml
+
+- name: Nagios monitoring for Vault/SSL
+  hosts: nagios
+  gather_facts: yes
+  tags: [ 'nagios' ]
+  tasks:
+    - import_playbook: playbooks/nagios-ssl-monitor.yml

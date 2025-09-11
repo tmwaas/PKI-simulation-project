@@ -1,0 +1,14 @@
+all:
+  children:
+    linux_clients:
+      hosts:
+        linux_client:
+          ansible_host: 10.0.0.11
+          ansible_user: root
+    windows_clients:
+      hosts:
+        windows_client:
+          ansible_host: 10.0.0.12
+          ansible_user: Administrator
+          ansible_password: "REPLACE_WITH_SECURE_PASSWORD"
+          ansible_connection: winrm

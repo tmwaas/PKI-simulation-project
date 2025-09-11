@@ -1,0 +1,25 @@
+---
+- name: Deploy PFX to Windows client
+  hosts: windows_clients
+  gather_facts: no
+  vars:
+    cn: "win-client"
+    pfx_password: "ChangeMe123!"
+    pfx_path_ca: "/etc/pki/windows-pfx/{{ cn }}.pfx"
+    pfx_tmp_win: "C:\\Windows\\Temp\\{{ cn }}.pfx"
+  tasks:
+    - name: Slurp PFX from CA
+      slurp:
+        src: "{{ pfx_path_ca }}"
+      delegate_to: "{{ groups['ca'][0] }}"
+      register: pfx_data
+
+    - name: Copy PFX to Windows
+      win_copy:
+        content: "{{ pfx_data.content | b64decode }}"
+        dest: "{{ pfx_tmp_win }}"
+
+    - name: Import PFX to Personal store (with private key)
+      win_shell: |
+        $pwd = ConvertTo-SecureString -String '{{ pfx_password }}' -AsPlainText -Force
+        Import-PfxCertificate -FilePath '{{ pfx_tmp_win }}' -Password $pwd -CertStoreLocation Cert:\LocalMachine\My | Out-Null

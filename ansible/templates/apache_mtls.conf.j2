@@ -1,0 +1,15 @@
+<VirtualHost *:443>
+    ServerName ca-lab
+    SSLEngine on
+    SSLCertificateFile {{ server_cert }}
+    SSLCertificateKeyFile {{ server_key }}
+    SSLCertificateChainFile {{ chain_file }}
+
+    SSLVerifyClient require
+    SSLVerifyDepth 2
+    SSLCACertificateFile /etc/pki/intermediate/certs/intermediate.cert.pem
+
+    <Location "/">
+        Require all granted
+    </Location>
+</VirtualHost>

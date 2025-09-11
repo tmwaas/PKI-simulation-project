@@ -1,0 +1,35 @@
+---
+- name: Setup Nagios SSL/Vault checks
+  hosts: nagios
+  become: yes
+  gather_facts: yes
+  vars:
+    checks_dir: /usr/local/nagios/libexec
+    conf_dir: /etc/nagios/conf.d
+  tasks:
+    - name: Ensure packages
+      apt:
+        name:
+          - nagios-plugins
+          - nagios3
+          - curl
+          - jq
+        state: present
+        update_cache: yes
+
+    - name: Install check_vault.sh
+      copy:
+        src: check_vault.sh
+        dest: "{{ checks_dir }}/check_vault.sh"
+        mode: "0755"
+
+    - name: Install vault service cfg
+      copy:
+        src: vault_service.cfg
+        dest: "{{ conf_dir }}/vault_service.cfg"
+        mode: "0644"
+
+    - name: Reload Nagios
+      service:
+        name: nagios3
+        state: reloaded

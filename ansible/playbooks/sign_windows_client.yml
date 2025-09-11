@@ -1,0 +1,36 @@
+---
+- name: Sign Windows CSR on CA and build PFX
+  hosts: ca
+  become: yes
+  gather_facts: yes
+  vars:
+    openssl_bin: /usr/bin/openssl
+    interm_dir: /etc/pki/intermediate
+    out_dir: /etc/pki/windows-pfx
+    cn: "win-client"
+    pfx_password: "ChangeMe123!"
+  tasks:
+    - name: Sign CSR
+      command: >
+        {{ openssl_bin }} x509 -req
+        -in {{ out_dir }}/{{ cn }}.csr
+        -CA {{ interm_dir }}/certs/intermediate.cert.pem
+        -CAkey {{ interm_dir }}/private/intermediate.key.pem
+        -CAcreateserial
+        -out {{ out_dir }}/{{ cn }}.crt
+        -days 365 -sha256
+      args:
+        creates: "{{ out_dir }}/{{ cn }}.crt"
+
+    - name: Build fullchain for PFX
+      shell: >
+        cat {{ out_dir }}/{{ cn }}.crt {{ interm_dir }}/certs/intermediate.cert.pem > {{ out_dir }}/{{ cn }}-fullchain.crt
+
+    - name: Create PFX
+      command: >
+        {{ openssl_bin }} pkcs12 -export
+        -inkey {{ out_dir }}/{{ cn }}.key
+        -in {{ out_dir }}/{{ cn }}.crt
+        -certfile {{ interm_dir }}/certs/intermediate.cert.pem
+        -out {{ out_dir }}/{{ cn }}.pfx
+        -passout pass:{{ pfx_password }}

@@ -1,0 +1,8 @@
+# Prevent private key directories from being included in git archive exports
+ca/private/** export-ignore
+ca/intermediate/private/** export-ignore
+# Also keep signed certs and fetched csrs out of archives by default
+ca/signed/** export-ignore
+fetched_csrs/** export-ignore
+# Ensure PEM files are treated as text
+*.pem text

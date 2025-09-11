@@ -1,0 +1,43 @@
+---
+- name: Sign client CSRs on CA
+  hosts: ca
+  become: yes
+  gather_facts: yes
+  vars:
+    pki_base: /etc/pki
+    interm_dir: "{{ pki_base }}/intermediate"
+    openssl_bin: /usr/bin/openssl
+    csr_glob: "/tmp/pki-csrs/*.csr"
+  tasks:
+    - name: Ensure csr staging exists
+      file:
+        path: "/tmp/pki-csrs"
+        state: directory
+        mode: "0755"
+
+    - name: Find CSRs
+      find:
+        paths: "/tmp/pki-csrs"
+        patterns: "*.csr"
+      register: csr_files
+
+    - name: Sign each CSR with Intermediate CA (1y)
+      shell: |
+        set -e
+        for f in {{ csr_glob }}; do
+          [ -f "$f" ] || continue
+          base=$(basename "$f" .csr)
+          {{ openssl_bin }} x509 -req -in "$f"             -CA {{ interm_dir }}/certs/intermediate.cert.pem -CAkey {{ interm_dir }}/private/intermediate.key.pem             -CAcreateserial -out {{ interm_dir }}/certs/${base}.crt -days 365 -sha256
+        done
+      args:
+        warn: false
+
+    - name: Assemble fullchain for each cert
+      shell: |
+        set -e
+        for crt in {{ interm_dir }}/certs/*.crt; do
+          base=$(basename "$crt" .crt)
+          cat "$crt" {{ interm_dir }}/certs/intermediate.cert.pem > {{ interm_dir }}/certs/${base}-fullchain.crt
+        done
+      args:
+        warn: false

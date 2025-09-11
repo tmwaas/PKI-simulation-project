@@ -1,0 +1,106 @@
+---
+- name: Setup Root & Intermediate CA
+  hosts: ca
+  become: yes
+  gather_facts: yes
+  vars:
+    pki_base: /etc/pki
+    root_dir: "{{ pki_base }}/root"
+    interm_dir: "{{ pki_base }}/intermediate"
+    openssl_bin: /usr/bin/openssl
+    country: "NL"
+    org: "PKI Lab"
+    root_cn: "PKI Lab Root CA"
+    interm_cn: "PKI Lab Intermediate CA"
+  tasks:
+    - name: Ensure packages present
+      apt:
+        name:
+          - openssl
+          - ca-certificates
+          - apache2
+        state: present
+        update_cache: yes
+
+    - name: Create CA directories
+      file:
+        path: "{{ item }}"
+        state: directory
+        owner: root
+        group: root
+        mode: "0755"
+      loop:
+        - "{{ root_dir }}/certs"
+        - "{{ root_dir }}/crl"
+        - "{{ root_dir }}/newcerts"
+        - "{{ root_dir }}/private"
+        - "{{ interm_dir }}/certs"
+        - "{{ interm_dir }}/crl"
+        - "{{ interm_dir }}/csr"
+        - "{{ interm_dir }}/newcerts"
+        - "{{ interm_dir }}/private"
+
+    - name: Create DB/index/serial for root
+      copy:
+        dest: "{{ root_dir }}/{{ item.name }}"
+        content: "{{ item.content | default('') }}"
+        owner: root
+        group: root
+        mode: "0644"
+      loop:
+        - { name: "index.txt" }
+        - { name: "serial", content: "1000" }
+      when: not (root_created is defined and root_created)
+
+    - name: Create DB/index/serial for intermediate
+      copy:
+        dest: "{{ interm_dir }}/{{ item.name }}"
+        content: "{{ item.content | default('') }}"
+        owner: root
+        group: root
+        mode: "0644"
+      loop:
+        - { name: "index.txt" }
+        - { name: "serial", content: "2000" }
+        - { name: "crlnumber", content: "2000" }
+
+    - name: Generate Root CA private key if missing
+      command: "{{ openssl_bin }} genrsa -out {{ root_dir }}/private/ca.key.pem 4096"
+      args:
+        creates: "{{ root_dir }}/private/ca.key.pem"
+
+    - name: Self-sign Root CA cert if missing (10y)
+      command: >
+        {{ openssl_bin }} req -x509 -new -nodes
+        -key {{ root_dir }}/private/ca.key.pem
+        -sha256 -days 3650
+        -subj "/C={{ country }}/O={{ org }}/CN={{ root_cn }}"
+        -out {{ root_dir }}/certs/ca.cert.pem
+      args:
+        creates: "{{ root_dir }}/certs/ca.cert.pem"
+
+    - name: Generate Intermediate private key if missing
+      command: "{{ openssl_bin }} genrsa -out {{ interm_dir }}/private/intermediate.key.pem 4096"
+      args:
+        creates: "{{ interm_dir }}/private/intermediate.key.pem"
+
+    - name: Create Intermediate CSR if missing
+      command: >
+        {{ openssl_bin }} req -new
+        -key {{ interm_dir }}/private/intermediate.key.pem
+        -subj "/C={{ country }}/O={{ org }}/CN={{ interm_cn }}"
+        -out {{ interm_dir }}/csr/intermediate.csr.pem
+      args:
+        creates: "{{ interm_dir }}/csr/intermediate.csr.pem"
+
+    - name: Sign Intermediate with Root (5y) if missing
+      shell: |
+        set -e
+        {{ openssl_bin }} x509 -req -in {{ interm_dir }}/csr/intermediate.csr.pem           -CA {{ root_dir }}/certs/ca.cert.pem -CAkey {{ root_dir }}/private/ca.key.pem           -CAcreateserial -out {{ interm_dir }}/certs/intermediate.cert.pem -days 1825 -sha256
+      args:
+        creates: "{{ interm_dir }}/certs/intermediate.cert.pem"
+
+    - name: Build chain.pem (intermediate + root)
+      shell: >
+        cat {{ interm_dir }}/certs/intermediate.cert.pem {{ root_dir }}/certs/ca.cert.pem
+        > {{ interm_dir }}/certs/chain.pem

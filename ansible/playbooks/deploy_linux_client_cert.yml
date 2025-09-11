@@ -1,0 +1,32 @@
+---
+- name: Deploy client cert to Linux client
+  hosts: linux_clients
+  become: yes
+  gather_facts: yes
+  vars:
+    client_dir: /etc/pki/client
+    ca_interm_dir: /etc/pki/intermediate
+  tasks:
+    - name: Slurp signed cert from CA
+      slurp:
+        src: "{{ ca_interm_dir }}/certs/{{ inventory_hostname }}.crt"
+      delegate_to: "{{ groups['ca'][0] }}"
+      register: crt_data
+
+    - name: Copy client certificate
+      copy:
+        content: "{{ crt_data.content | b64decode }}"
+        dest: "{{ client_dir }}/client.crt"
+        mode: "0644"
+
+    - name: Slurp fullchain from CA
+      slurp:
+        src: "{{ ca_interm_dir }}/certs/{{ inventory_hostname }}-fullchain.crt"
+      delegate_to: "{{ groups['ca'][0] }}"
+      register: chain_data
+
+    - name: Copy fullchain
+      copy:
+        content: "{{ chain_data.content | b64decode }}"
+        dest: "{{ client_dir }}/client-fullchain.crt"
+        mode: "0644"

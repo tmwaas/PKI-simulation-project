@@ -1,0 +1,6 @@
+{
+  "role_name": "ansible-pki-role",
+  "bound_service_accounts": ["ansible-runner"],
+  "policies": ["pki-policy"],
+  "ttl": "1h"
+}

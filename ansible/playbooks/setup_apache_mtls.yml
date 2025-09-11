@@ -1,0 +1,38 @@
+---
+- name: Configure Apache for mTLS
+  hosts: ca
+  become: yes
+  gather_facts: yes
+  vars:
+    server_cert: /etc/pki/intermediate/certs/ca-lab.crt
+    server_key: /etc/pki/intermediate/private/ca-lab.key
+    chain_file: /etc/pki/intermediate/certs/chain.pem
+    vhost_path: /etc/apache2/sites-available/mtls.conf
+  tasks:
+    - name: Ensure SSL module enabled
+      command: a2enmod ssl
+      register: a2enmod
+      changed_when: "'already enabled' not in a2enmod.stdout"
+
+    - name: Generate self server key/cert for Apache if missing (signed by Intermediate)
+      shell: |
+        set -e
+        if [ ! -f "{{ server_key }}" ]; then openssl genrsa -out {{ server_key }} 2048; fi
+        if [ ! -f "{{ server_cert }}" ]; then
+          openssl req -new -key {{ server_key }} -subj "/CN=ca-lab" -out /tmp/ca-lab.csr
+          openssl x509 -req -in /tmp/ca-lab.csr             -CA /etc/pki/intermediate/certs/intermediate.cert.pem -CAkey /etc/pki/intermediate/private/intermediate.key.pem             -CAcreateserial -out {{ server_cert }} -days 825 -sha256
+        fi
+
+    - name: Deploy mTLS vhost
+      template:
+        src: apache_mtls.conf.j2
+        dest: "{{ vhost_path }}"
+        mode: "0644"
+
+    - name: Enable site
+      command: a2ensite mtls.conf
+
+    - name: Restart Apache
+      service:
+        name: apache2
+        state: restarted

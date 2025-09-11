@@ -1,0 +1,13 @@
+stages:
+  - deploy
+
+deploy_certificates:
+  stage: deploy
+  image: williamyeh/ansible:alpine3
+  variables:
+    ANSIBLE_FORCE_COLOR: "true"
+  before_script:
+    - apk add --no-cache openssh-client
+    - mkdir -p ~/.ssh
+  script:
+    - ansible-playbook -i inventory.yml playbooks/pki-automation.yml

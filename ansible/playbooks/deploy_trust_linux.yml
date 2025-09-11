@@ -1,0 +1,41 @@
+---
+- name: Distribute Root & Intermediate CA to Linux clients
+  hosts: linux_clients
+  become: yes
+  gather_facts: yes
+  vars:
+    root_ca_path: /etc/pki/root/certs/ca.cert.pem
+    interm_ca_path: /etc/pki/intermediate/certs/intermediate.cert.pem
+  tasks:
+    - name: Slurp root CA from CA host
+      slurp:
+        src: "{{ root_ca_path }}"
+      delegate_to: "{{ groups['ca'][0] }}"
+      register: root_ca_content
+
+    - name: Slurp intermediate CA from CA host
+      slurp:
+        src: "{{ interm_ca_path }}"
+      delegate_to: "{{ groups['ca'][0] }}"
+      register: interm_ca_content
+
+    - name: Ensure trust dir exists
+      file:
+        path: /usr/local/share/ca-certificates
+        state: directory
+        mode: "0755"
+
+    - name: Install root CA
+      copy:
+        content: "{{ root_ca_content.content | b64decode }}"
+        dest: /usr/local/share/ca-certificates/pki-lab-root.crt
+        mode: "0644"
+
+    - name: Install intermediate CA
+      copy:
+        content: "{{ interm_ca_content.content | b64decode }}"
+        dest: /usr/local/share/ca-certificates/pki-lab-intermediate.crt
+        mode: "0644"
+
+    - name: Update CA trust
+      command: update-ca-certificates

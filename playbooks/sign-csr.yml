@@ -1,0 +1,21 @@
+---
+- name: Sign fetched CSRs on CA (run on CA host)
+  hosts: localhost
+  connection: local
+  vars:
+    ca_dir: "{{ lookup('env','HOME') + '/ca' }}"
+  tasks:
+    - name: Ensure signed output dir exists
+      file:
+        path: "{{ ca_dir }}/signed"
+        state: directory
+        mode: '0755'
+
+    - name: Sign all CSRs found in fetched_csrs/
+      shell: |
+        for csr in fetched_csrs/*.csr.pem; do
+          name=$(basename $csr .csr.pem)
+          openssl x509 -req -in $csr -CA $ca_dir/intermediate/certs/intermediate.cert.pem -CAkey $ca_dir/intermediate/private/intermediate.key.pem -CAcreateserial -out $ca_dir/signed/${name}.cert.pem -days 365 -sha256
+        done
+      args:
+        chdir: "{{ playbook_dir }}"

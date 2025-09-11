@@ -1,0 +1,38 @@
+---
+- name: Generate Linux client key & CSR
+  hosts: linux_clients
+  become: yes
+  gather_facts: yes
+  vars:
+    client_dir: /etc/pki/client
+    cn: "{{ inventory_hostname }}"
+    openssl_bin: /usr/bin/openssl
+  tasks:
+    - name: Ensure client dir exists
+      file:
+        path: "{{ client_dir }}"
+        state: directory
+        mode: "0750"
+
+    - name: Generate client private key if missing
+      command: "{{ openssl_bin }} genrsa -out {{ client_dir }}/client.key 2048"
+      args:
+        creates: "{{ client_dir }}/client.key"
+
+    - name: Generate CSR if missing
+      command: >
+        {{ openssl_bin }} req -new
+        -key {{ client_dir }}/client.key
+        -subj "/CN={{ cn }}"
+        -out {{ client_dir }}/client.csr
+      args:
+        creates: "{{ client_dir }}/client.csr"
+
+    - name: Fetch CSR to CA host
+      fetch:
+        src: "{{ client_dir }}/client.csr"
+        dest: "/tmp/pki-csrs/{{ inventory_hostname }}.csr"
+        flat: yes
+      delegate_to: "{{ groups['ca'][0] }}"
+      run_once: false
+      changed_when: false

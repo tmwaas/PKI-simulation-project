@@ -1,0 +1,3 @@
+# Example NRPE commands to check certificates and windows services via NSClient++
+command[check_ssl_cert]=/usr/local/nagios/libexec/check_ssl_cert.sh $ARG1$
+# On Windows, use NSClient++ custom scripts or checks to inspect Cert:\LocalMachine\My

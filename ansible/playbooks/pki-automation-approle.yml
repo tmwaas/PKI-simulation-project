@@ -1,0 +1,44 @@
+---
+- name: Retrieve PKI materials via Vault AppRole
+  hosts: ca
+  gather_facts: false
+  vars:
+    vault_addr_env: "{{ lookup('env', 'VAULT_ADDR') | default('http://127.0.0.1:8200', true) }}"
+    vault_role_id_env: "{{ lookup('env', 'VAULT_ROLE_ID') }}"
+    vault_secret_id_env: "{{ lookup('env', 'VAULT_SECRET_ID') }}"
+  tasks:
+    - name: Authenticate to Vault with AppRole and get a client token
+      set_fact:
+        vault_client_token: "{{ lookup('community.hashi_vault.hashi_vault',
+                                       'auth/approle/login',
+                                       auth_method='approle',
+                                       role_id=vault_role_id_env,
+                                       secret_id=vault_secret_id_env,
+                                       url=vault_addr_env) }}"
+      no_log: true
+
+    - name: Read Root CA from KV v2 (cert & key)
+      set_fact:
+        root_ca_data: "{{ lookup('community.hashi_vault.hashi_vault',
+                                  'pki-lab/ca/root',
+                                  token=vault_client_token,
+                                  url=vault_addr_env,
+                                  engine_mount_point='pki-lab') }}"
+      no_log: true
+
+    - name: Write Root CA cert
+      copy:
+        content: "{{ root_ca_data.data.cert }}"
+        dest: /etc/pki/root/certs/ca.cert.pem
+        owner: root
+        group: root
+        mode: '0644'
+
+    - name: Write Root CA key (protect carefully)
+      copy:
+        content: "{{ root_ca_data.data.key }}"
+        dest: /etc/pki/root/private/ca.key.pem
+        owner: root
+        group: root
+        mode: '0600'
+      no_log: true

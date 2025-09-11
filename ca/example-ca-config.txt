@@ -1,0 +1,25 @@
+# Example OpenSSL CA configuration (sanitized for lab use)
+# This is NOT production safe. Do not use these keys in real PKI.
+[ ca ]
+default_ca = CA_default
+
+[ CA_default ]
+dir               = ./ca
+certs             = $dir/certs
+crl_dir           = $dir/crl
+new_certs_dir     = $dir/newcerts
+database          = $dir/index.txt
+serial            = $dir/serial
+private_key       = $dir/private/ca.key.pem
+certificate       = $dir/certs/ca.cert.pem
+
+default_md        = sha256
+policy            = policy_strict
+email_in_dn       = no
+
+[ policy_strict ]
+countryName             = match
+stateOrProvinceName     = match
+organizationName        = match
+organizationalUnitName  = optional
+commonName              = supplied

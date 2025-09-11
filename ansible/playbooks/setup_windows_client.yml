@@ -1,0 +1,31 @@
+---
+- name: Prepare Windows client (generate CSR on CA & deliver PFX)
+  hosts: ca
+  become: yes
+  gather_facts: yes
+  vars:
+    openssl_bin: /usr/bin/openssl
+    interm_dir: /etc/pki/intermediate
+    out_dir: /etc/pki/windows-pfx
+    cn: "win-client"
+    pfx_password: "ChangeMe123!"
+  tasks:
+    - name: Ensure out dir exists
+      file:
+        path: "{{ out_dir }}"
+        state: directory
+        mode: "0755"
+
+    - name: Generate Windows client key if missing
+      command: "{{ openssl_bin }} genrsa -out {{ out_dir }}/{{ cn }}.key 2048"
+      args:
+        creates: "{{ out_dir }}/{{ cn }}.key"
+
+    - name: Generate Windows CSR if missing
+      command: >
+        {{ openssl_bin }} req -new
+        -key {{ out_dir }}/{{ cn }}.key
+        -subj "/CN={{ cn }}"
+        -out {{ out_dir }}/{{ cn }}.csr
+      args:
+        creates: "{{ out_dir }}/{{ cn }}.csr"

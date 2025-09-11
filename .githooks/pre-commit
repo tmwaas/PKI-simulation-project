@@ -1,0 +1,28 @@
+#!/usr/bin/env bash
+# Simple pre-commit hook: scan staged files for private keys or raw PEM private keys
+# Install: chmod +x .githooks/pre-commit && ln -s ../../.githooks/pre-commit .git/hooks/pre-commit
+
+STAGED=$(git diff --cached --name-only --diff-filter=ACM)
+if [ -z "$STAGED" ]; then
+  exit 0
+fi
+
+FAIL=0
+for file in $STAGED; do
+  if [[ "$file" =~ \.key$ ]] || [[ "$file" =~ private/ ]] || [[ "$file" =~ id_rsa ]]; then
+    echo "ERROR: Attempt to commit a private key or private directory: $file"
+    FAIL=1
+  fi
+  # quick content check for PEM private key markers
+  if git show :$file 2>/dev/null | grep -q "-----BEGIN .*PRIVATE KEY-----"; then
+    echo "ERROR: File contains a private key PEM block: $file"
+    FAIL=1
+  fi
+done
+
+if [ "$FAIL" -ne 0 ]; then
+  echo "Commit aborted. Remove private keys from index and use secrets management."
+  exit 1
+fi
+
+exit 0
