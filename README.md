@@ -22,6 +22,8 @@ Network: `10.0.0.0/24` (private)
 - VM4 (10.0.0.13) — RHEL 8/9 — Nagios Monitoring Server
 - GitLab (container or VM) — CI/CD server
 
+![alt text](Proxmox-4VMs.jpg)
+
 **Quick-start**
 1. Provision VMs in Proxmox/VirtualBox as described in `docs/VM_SETUP.md`.
 2. Copy the `ca/` directory to the Root CA VM: `/root/ca/`.
