@@ -20,7 +20,7 @@ Network: `10.0.0.0/24` (private)
 - VM2 (10.0.0.11) — RHEL 8/9 — Linux PKI Client
 - VM3 (10.0.0.12) — Windows Server 2022 — Windows PKI Client
 - VM4 (10.0.0.13) — RHEL 8/9 — Nagios Monitoring Server
-- GitLab (container or VM) — CI/CD server
+- GitLab — CI/CD server
 
 ![alt text](Proxmox-4VMs.jpg)
 
