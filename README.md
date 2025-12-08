@@ -1,6 +1,7 @@
 # PKI Simulation Project
 
 **Overview**
+
 This project simulates a Public Key Infrastructure (PKI) environment that includes:
 - Root and Intermediate CAs (on Linux)
 - Linux & Windows clients configured to trust the CA
@@ -15,6 +16,7 @@ This project simulates a Public Key Infrastructure (PKI) environment that includ
 - Monitor certificate status and service health via Nagios
 
 **Lab Topology**
+
 Network: `10.0.0.0/24` (private)
 - VM1 (10.0.0.10) — RHEL 10 — Root CA & Ansible Control Node
 - VM2 (10.0.0.11) — RHEL 10 — Linux PKI Client
