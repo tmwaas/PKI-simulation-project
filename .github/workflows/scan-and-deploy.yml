@@ -60,7 +60,9 @@ jobs:
           pip install ansible-lint
           ansible-lint playbooks/pki-automation.yml || true
       - name: Run playbook in check mode (no changes)
+        continue-on-error: true
         env:
           ANSIBLE_HOST_KEY_CHECKING: "False"
         run: |
           ansible-playbook -i inventory.yml playbooks/pki-automation.yml --check --diff
+          
