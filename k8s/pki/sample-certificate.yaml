@@ -1,0 +1,14 @@
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: tmw-com-cert
+  namespace: default
+spec:
+  secretName: tmw-com-tls
+  issuerRef:
+    name: vault-issuer
+    kind: ClusterIssuer
+  commonName: myapp.tmw.com
+  dnsNames:
+  - myapp.tmw.com
+  - api.tmw.com

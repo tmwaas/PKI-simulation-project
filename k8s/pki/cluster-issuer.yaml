@@ -1,0 +1,12 @@
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: vault-issuer
+spec:
+  vault:
+    path: pki/sign/my-pki-role
+    server: http://vault.default.svc.cluster.local:8200
+    auth:
+      tokenSecretRef:
+        name: vault-token
+        key: token
